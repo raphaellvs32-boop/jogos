@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Zumbis do Espaço · Jogos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Monoton&family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+<style>
+  :root { --rosa:#ff2bd6; --ciano:#00f0ff; --amarelo:#ffe600; --verde:#39ff14; --laranja:#ff9a00; --rosa-claro:#ff8be8; --px:'Press Start 2P', monospace; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; }
+  body {
+    color: #fff; font-family: 'VT323', monospace; user-select: none; -webkit-user-select: none; touch-action: none;
+    -webkit-tap-highlight-color: transparent;
+    background-color: #0c0420;
+    background-image:
+      radial-gradient(circle at 18% 30%, rgba(120,60,200,.35) 0 60px, transparent 62px),
+      radial-gradient(circle at 72% 78%, rgba(120,60,200,.3) 0 90px, transparent 92px),
+      radial-gradient(circle at 58% 22%, rgba(120,60,200,.25) 0 40px, transparent 42px),
+      radial-gradient(circle at 35% 85%, rgba(120,60,200,.22) 0 30px, transparent 32px),
+      linear-gradient(rgba(0,240,255,.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,240,255,.05) 1px, transparent 1px),
+      radial-gradient(ellipse at center, #2a0c4a 0%, #0c0420 75%);
+    background-size: auto, auto, auto, auto, 64px 64px, 64px 64px, auto;
+  }
+  #jogo { position: fixed; inset: 0; display: block; cursor: none; }
+  .borda { position: fixed; inset: 10px; border: 2px solid rgba(255,43,214,.6); border-radius: 18px; pointer-events: none;
+    box-shadow: 0 0 24px rgba(255,43,214,.5), inset 0 0 40px rgba(255,43,214,.2); }
+  .scan { position: fixed; inset: 0; pointer-events: none; z-index: 40; background: repeating-linear-gradient(0deg, rgba(0,0,0,.2) 0 2px, transparent 2px 4px); }
+
+  /* ---------- HUD ---------- */
+  .hud { position: fixed; pointer-events: none; z-index: 10; }
+  .caixa { background: rgba(10,0,30,.82); border: 2px solid var(--rosa); border-radius: 10px; padding: 10px 14px; box-shadow: 0 0 14px rgba(255,43,214,.5); }
+  .rot { font-family: var(--px); font-size: 10px; color: var(--rosa-claro); }
+  .topo { left: 28px; right: 28px; top: 24px; display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+  .vida { border-color: var(--verde); box-shadow: 0 0 14px rgba(57,255,20,.45); width: 260px; display: flex; flex-direction: column; gap: 6px; }
+  .vida .rot { color: var(--verde); }
+  .barra { height: 14px; border-radius: 7px; background: rgba(57,255,20,.15); border: 1px solid var(--verde); overflow: hidden; }
+  .barra div { height: 100%; width: 100%; background: linear-gradient(90deg, #39ff14, #b6ff3a); box-shadow: 0 0 10px #39ff14; transition: width .15s; }
+  .barra.baixa div { background: #ff3864; box-shadow: 0 0 10px #ff3864; }
+  .onda { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .onda b { font-family: 'Monoton', cursive; font-weight: 400; font-size: 40px; color: #ffe6fb; letter-spacing: 4px; text-shadow: 0 0 8px var(--rosa), 0 0 22px var(--rosa), 3px 3px 0 var(--ciano); }
+  .placar { display: flex; gap: 18px; align-items: flex-end; }
+  #pontos { font-size: 38px; line-height: 1; color: var(--amarelo); text-shadow: 0 0 10px var(--amarelo); display: block; }
+  #combo { font-family: var(--px); font-size: 16px; color: var(--ciano); text-shadow: 0 0 10px var(--ciano); padding-bottom: 6px; visibility: hidden; }
+  #btnPausa { pointer-events: auto; width: 44px; height: 44px; border-radius: 8px; border: 2px solid var(--verde); background: rgba(10,0,30,.82); color: var(--verde); display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer; }
+
+  .armas { left: 28px; bottom: 24px; display: flex; gap: 10px; align-items: flex-end; }
+  .arma { width: 108px; border: 2px solid currentColor; border-radius: 10px; padding: 8px 10px; background: rgba(10,0,30,.85); display: flex; flex-direction: column; gap: 4px; opacity: .55; }
+  .arma.ativa { opacity: 1; box-shadow: 0 0 16px currentColor; }
+  .arma.bloq { color: #9a8fc2 !important; opacity: .45; }
+  .arma span:first-child { font-family: var(--px); font-size: 8px; }
+  .arma span:last-child { font-size: 28px; line-height: 1; color: #fff; }
+
+  .radar { right: 28px; bottom: 36px; width: 130px; height: 130px; border-radius: 50%; border: 2px solid var(--ciano);
+    background: radial-gradient(circle, rgba(0,240,255,.12) 0 30%, rgba(10,0,30,.85) 31%); box-shadow: 0 0 14px rgba(0,240,255,.5); }
+  .radar span { position: absolute; bottom: -18px; left: 0; right: 0; text-align: center; font-family: var(--px); font-size: 8px; color: var(--ciano); }
+
+  #banner { position: fixed; left: 0; right: 0; top: 40%; text-align: center; pointer-events: none; z-index: 12; opacity: 0; transition: opacity .4s;
+    font-family: 'Monoton', cursive; font-size: clamp(40px, 9vw, 90px); color: #ffe6fb; text-shadow: 0 0 10px var(--rosa), 0 0 30px var(--rosa), 4px 4px 0 var(--ciano); }
+  #banner small { display: block; font-family: var(--px); font-size: 14px; color: var(--amarelo); text-shadow: 0 0 10px var(--amarelo); margin-top: 10px; }
+  #banner.visivel { opacity: 1; }
+
+  /* ---------- Controles de toque ---------- */
+  .toque { display: none; }
+  body.touch .toque { display: block; }
+  body.touch .armas, body.touch .radar { display: none; }
+  body.touch #jogo { cursor: default; }
+  .stick { position: fixed; bottom: 24px; width: 120px; height: 120px; border-radius: 50%; z-index: 11; pointer-events: none; }
+  .stick .rot { position: absolute; bottom: -16px; left: 0; right: 0; text-align: center; font-size: 7px; }
+  .stick i { position: absolute; left: 34px; top: 34px; width: 52px; height: 52px; border-radius: 50%; }
+  #stickA { left: 30px; border: 2px solid rgba(0,240,255,.7); background: rgba(0,240,255,.08); box-shadow: 0 0 14px rgba(0,240,255,.4); }
+  #stickA i { background: rgba(0,240,255,.5); border: 2px solid var(--ciano); box-shadow: 0 0 12px var(--ciano); }
+  #stickA .rot { color: var(--ciano); }
+  #stickB { right: 30px; border: 2px solid rgba(255,43,214,.7); background: rgba(255,43,214,.08); box-shadow: 0 0 14px rgba(255,43,214,.4); }
+  #stickB i { background: rgba(255,43,214,.5); border: 2px solid var(--rosa); box-shadow: 0 0 12px var(--rosa); }
+  .tbtn { position: fixed; z-index: 13; right: 166px; font-family: var(--px); background: rgba(10,0,30,.85); padding: 0; cursor: pointer; }
+  #btnGranada { bottom: 30px; width: 56px; height: 56px; border-radius: 50%; border: 2px solid var(--laranja); color: var(--laranja); font-size: 9px; box-shadow: 0 0 12px rgba(255,154,0,.6); }
+  #btnArma { bottom: 98px; height: 44px; padding: 0 12px; border-radius: 22px; border: 2px solid var(--ciano); color: var(--ciano); font-size: 8px; }
+
+  /* ---------- Telas ---------- */
+  .tela { position: fixed; inset: 0; z-index: 30; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+    background: rgba(7,1,26,.84); text-align: center; padding: 20px; }
+  .tela.visivel { display: flex; }
+  .tela h1 { margin: 0; font-family: 'Monoton', cursive; font-weight: 400; font-size: clamp(34px, 8vw, 76px); color: #ffe6fb; letter-spacing: .08em;
+    text-shadow: 0 0 8px var(--rosa), 0 0 24px var(--rosa), 0 0 44px var(--ciano), 4px 4px 0 var(--ciano); }
+  .tela p { margin: 0; font-size: 24px; max-width: 560px; line-height: 1.25; }
+  .tela .ajuda { font-size: 20px; color: #c9b8ff; }
+  .tela button { font-family: var(--px); font-size: 13px; color: #fff; background: rgba(255,43,214,.25); border: 2px solid var(--rosa); border-radius: 8px;
+    padding: 16px 20px; cursor: pointer; box-shadow: 0 0 16px var(--rosa); animation: pulsar 1.4s steps(2) infinite; }
+  .tela a { font-family: var(--px); font-size: 10px; color: var(--ciano); text-decoration: none; }
+  @keyframes pulsar { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+  #girar { z-index: 35; }
+
+  /* ---------- Telas baixas (celular deitado) ---------- */
+  @media (max-height: 520px) {
+    .topo { left: 18px; right: 18px; top: 14px; }
+    .caixa { padding: 6px 10px; }
+    .rot { font-size: 8px; }
+    .vida { width: 180px; gap: 4px; }
+    .barra { height: 10px; }
+    .onda b { font-size: 26px; letter-spacing: 3px; }
+    #pontos { font-size: 26px; }
+    #combo { font-size: 10px; padding-bottom: 4px; }
+  }
+  @media (max-width: 700px) and (min-height: 521px) {
+    .topo { flex-wrap: wrap; justify-content: center; }
+    .onda b { font-size: 26px; }
+  }
+</style>
+</head>
+<body>
+  <canvas id="jogo"></canvas>
+  <div class="borda" aria-hidden="true"></div>
+  <div class="scan" aria-hidden="true"></div>
+
+  <div class="hud topo">
+    <div class="caixa vida">
+      <div style="display:flex;justify-content:space-between;align-items:center"><span class="rot">VIDA</span><span id="vidaTxt" style="font-size:22px;line-height:1">100</span></div>
+      <div class="barra" id="barra"><div></div></div>
+    </div>
+    <div class="onda">
+      <b id="onda">ONDA 01</b>
+      <span class="rot" id="restam">ZUMBIS RESTANTES: 0</span>
+    </div>
+    <div style="display:flex;gap:8px;align-items:flex-start">
+      <div class="caixa placar">
+        <div><span class="rot">PONTOS</span><span id="pontos">000.000</span></div>
+        <span id="combo">COMBO x2</span>
+      </div>
+      <button id="btnPausa" aria-label="Pausar">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M8 5v14M16 5v14"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="hud armas">
+    <div class="arma" id="arma0" style="color:#00f0ff"><span>1 · BLASTER</span><span>∞</span></div>
+    <div class="arma" id="arma1" style="color:#ff2bd6"><span>2 · ESCOPETA</span><span>08</span></div>
+    <div class="arma" id="arma2" style="color:#ffe600"><span>3 · LASER</span><span>BLOQ.</span></div>
+    <div class="arma ativa" style="color:#ff9a00"><span>G · GRANADA</span><span id="granadas">x2</span></div>
+  </div>
+
+  <div class="hud radar"><canvas id="radar" width="130" height="130"></canvas><span>RADAR</span></div>
+
+  <div class="toque">
+    <div class="stick" id="stickA"><i></i><span class="rot">ANDAR</span></div>
+    <div class="stick" id="stickB"><i></i><span class="rot" style="color:#ff8be8">MIRAR E ATIRAR</span></div>
+    <button class="tbtn" id="btnGranada" aria-label="Lançar granada">G x2</button>
+    <button class="tbtn" id="btnArma" aria-label="Trocar arma">BLASTER ∞</button>
+  </div>
+
+  <div id="banner"></div>
+
+  <div class="tela visivel" id="telaInicio">
+    <h1>ZUMBIS DO ESPAÇO</h1>
+    <p>Os zumbis alienígenas invadiram a base. Sobreviva às ondas, derrube o chefão e faça o maior placar.</p>
+    <p class="ajuda" id="ajuda">WASD para andar · mouse para mirar · clique para atirar<br>1 2 3 trocam a arma · G lança granada · P pausa</p>
+    <button id="btnJogar">APERTE START</button>
+    <a href="../../">← VOLTAR AO SITE</a>
+  </div>
+
+  <div class="tela" id="telaPausa">
+    <h1>PAUSA</h1>
+    <button id="btnContinuar">CONTINUAR</button>
+    <a href="../../">← SAIR DO JOGO</a>
+  </div>
+
+  <div class="tela" id="telaFim">
+    <h1>GAME OVER</h1>
+    <p id="fimTexto"></p>
+    <button id="btnDeNovo">JOGAR DE NOVO</button>
+    <a href="../../">← VOLTAR AO SITE</a>
+  </div>
+
+  <div class="tela" id="girar">
+    <h1 style="font-size:34px">VIRE O CELULAR</h1>
+    <p>Este jogo funciona melhor com o celular deitado.</p>
+  </div>
+
+<script>
+(() => {
+  const cv = document.getElementById('jogo');
+  const ctx = cv.getContext('2d');
+  const $ = id => document.getElementById(id);
+  const TOUCH = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
+  if (TOUCH) {
+    document.body.classList.add('touch');
+    $('ajuda').innerHTML = 'Controle da esquerda: andar · controle da direita: mirar e atirar<br>Botões para granada e troca de arma';
+  }
+
+  let W = 0, H = 0, S = 1;
+  function dimensionar() {
+    const dpr = window.devicePixelRatio || 1;
+    W = innerWidth; H = innerHeight;
+    cv.width = W * dpr; cv.height = H * dpr;
+    cv.style.width = W + 'px'; cv.style.height = H + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    S = Math.max(0.6, Math.min(1.1, Math.min(W, H) / 720));
+    $('girar').classList.toggle('visivel', TOUCH && H > W);
+  }
+  addEventListener('resize', dimensionar);
+  dimensionar();
+
+  // ---------- Recorde ----------
+  const lerRec = () => { try { return +localStorage.getItem('zumbis-recorde') || 0; } catch { return 0; } };
+  const salvarRec = v => { try { localStorage.setItem('zumbis-recorde', v); } catch {} };
+  const fmt = n => String(Math.floor(n)).padStart(6, '0').replace(/(\d{3})(\d{3})$/, '$1.$2');
+  const rnd = (a, b) => a + Math.random() * (b - a);
+
+  // ---------- Estado ----------
+  const ARMAS = [
+    { nome: 'BLASTER', cd: 0.16, cor: '#00f0ff' },
+    { nome: 'ESCOPETA', cd: 0.7, cor: '#ff2bd6' },
+    { nome: 'LASER', cd: 0.07, cor: '#ffe600' }
+  ];
+  let estado = 'inicio';
+  let jog, zumbis, tiros, gosmas, granadas, itens, particulas, textos;
+  let onda, faltam, spawnT, pontos, combo, comboT, tremor, intervaloOnda, recordeInicial;
+  let municao, armaAtual, liberadas, nGranadas, cooldown;
+
+  function novoJogo() {
+    jog = { x: W / 2, y: H / 2, ang: 0, vida: 100, inv: 0 };
+    zumbis = []; tiros = []; gosmas = []; granadas = []; itens = []; particulas = []; textos = [];
+    onda = 0; pontos = 0; combo = 0; comboT = 0; tremor = 0; intervaloOnda = 0;
+    municao = [Infinity, 8, 0]; liberadas = [true, true, false]; armaAtual = 0; nGranadas = 2; cooldown = 0;
+    recordeInicial = lerRec();
+    proximaOnda();
+    estado = 'jogando';
+    mostrarTela(null);
+    atualizarHUD(true);
+  }
+
+  function proximaOnda() {
+    onda++;
+    faltam = 5 + onda * 3;
+    spawnT = 1.5;
+    const chefe = onda % 5 === 0;
+    if (chefe) { faltam = Math.floor(faltam * 0.6); criarZumbi(true); }
+    if (onda === 4) { liberadas[2] = true; municao[2] += 150; }
+    banner(`ONDA ${onda}`, chefe ? 'CUIDADO: CHEFÃO!' : onda === 4 ? 'LASER LIBERADO! (TECLA 3)' : '');
+  }
+
+  function criarZumbi(chefe) {
+    const lado = Math.floor(Math.random() * 4), m = 50;
+    let x, y;
+    if (lado === 0) { x = rnd(0, W); y = -m; } else if (lado === 1) { x = W + m; y = rnd(0, H); }
+    else if (lado === 2) { x = rnd(0, W); y = H + m; } else { x = -m; y = rnd(0, H); }
+    if (chefe) {
+      const hp = 40 + onda * 8;
+      zumbis.push({ x, y, r: 60 * S, hp, max: hp, spd: 45 * S, chefe: true, wob: Math.random() * 6, flash: 0, cusp: 2.5 });
+    } else {
+      const hp = 2 + Math.floor(onda / 3);
+      zumbis.push({ x, y, r: rnd(22, 30) * S, hp, max: hp, spd: Math.min(170, 55 + onda * 6 + rnd(0, 35)) * S, chefe: false, wob: Math.random() * 6, flash: 0 });
+    }
+  }
+
+  // ---------- Entrada ----------
+  const teclas = {};
+  const mouse = { x: W / 2 + 100, y: H / 2, down: false };
+  const stickA = { id: null, ox: 0, oy: 0, dx: 0, dy: 0 };
+  const stickB = { id: null, ox: 0, oy: 0, dx: 0, dy: 0 };
+
+  addEventListener('keydown', e => {
+    const k = e.key.toLowerCase();
+    teclas[k] = true;
+    if ([' ', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) e.preventDefault();
+    if (estado === 'inicio' || estado === 'fim') { if (k === 'enter') novoJogo(); return; }
+    if (k === 'p' || k === 'escape') return alternarPausa();
+    if (estado !== 'jogando') return;
+    if (k === '1' || k === '2' || k === '3') trocarArma(+k - 1);
+    if (k === 'q') trocarArma();
+    if (k === 'g' || k === ' ') lancarGranada();
+  });
+  addEventListener('keyup', e => { teclas[e.key.toLowerCase()] = false; });
+  cv.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
+  cv.addEventListener('mousedown', e => { if (e.button === 0) mouse.down = true; });
+  addEventListener('mouseup', () => { mouse.down = false; });
+  cv.addEventListener('contextmenu', e => e.preventDefault());
+
+  // Controles de toque: metade esquerda anda, metade direita mira e atira
+  cv.addEventListener('pointerdown', e => {
+    if (e.pointerType === 'mouse') return;
+    const s = e.clientX < W / 2 ? stickA : stickB;
+    if (s.id !== null) return;
+    s.id = e.pointerId; s.ox = e.clientX; s.oy = e.clientY; s.dx = 0; s.dy = 0;
+  });
+  cv.addEventListener('pointermove', e => {
+    for (const s of [stickA, stickB]) if (s.id === e.pointerId) {
+      let dx = e.clientX - s.ox, dy = e.clientY - s.oy;
+      const d = Math.hypot(dx, dy), max = 50;
+      if (d > max) { dx = dx / d * max; dy = dy / d * max; }
+      s.dx = dx; s.dy = dy;
+    }
+  });
+  const soltar = e => { for (const s of [stickA, stickB]) if (s.id === e.pointerId) { s.id = null; s.dx = 0; s.dy = 0; } };
+  cv.addEventListener('pointerup', soltar);
+  cv.addEventListener('pointercancel', soltar);
+
+  $('btnGranada').addEventListener('pointerdown', e => { e.stopPropagation(); lancarGranada(); });
+  $('btnArma').addEventListener('pointerdown', e => { e.stopPropagation(); trocarArma(); });
+  $('btnPausa').addEventListener('click', alternarPausa);
+  $('btnJogar').onclick = novoJogo;
+  $('btnDeNovo').onclick = novoJogo;
+  $('btnContinuar').onclick = alternarPausa;
+  document.addEventListener('visibilitychange', () => { if (document.hidden && estado === 'jogando') alternarPausa(); });
+
+  function trocarArma(i) {
+    if (estado !== 'jogando') return;
+    if (i === undefined) {
+      i = armaAtual;
+      do { i = (i + 1) % 3; } while (!(liberadas[i] && municao[i] > 0) && i !== 0);
+    }
+    if (liberadas[i] && municao[i] > 0) { armaAtual = i; atualizarHUD(true); }
+  }
+
+  function alternarPausa() {
+    if (estado === 'jogando') { estado = 'pausado'; mostrarTela('telaPausa'); }
+    else if (estado === 'pausado') { estado = 'jogando'; mostrarTela(null); ultimo = performance.now(); }
+  }
+
+  function mostrarTela(id) {
+    ['telaInicio', 'telaPausa', 'telaFim'].forEach(t => $(t).classList.toggle('visivel', t === id));
+  }
+
+  let bannerT = null;
+  function banner(txt, sub) {
+    $('banner').innerHTML = txt + (sub ? `<small>${sub}</small>` : '');
+    $('banner').classList.add('visivel');
+    clearTimeout(bannerT);
+    bannerT = setTimeout(() => $('banner').classList.remove('visivel'), 2000);
+  }
+
+  // ---------- Ações ----------
+  function atirar() {
+    const a = jog.ang, cx = jog.x + Math.cos(a) * 30 * S, cy = jog.y + Math.sin(a) * 30 * S;
+    if (armaAtual === 0) {
+      tiros.push({ x: cx, y: cy, vx: Math.cos(a) * 760, vy: Math.sin(a) * 760, dmg: 1, vida: 1.2, cor: '#ffe600', pierce: false, larg: 5 });
+    } else if (armaAtual === 1) {
+      for (let i = 0; i < 6; i++) {
+        const b = a + rnd(-0.35, 0.35), v = rnd(600, 760);
+        tiros.push({ x: cx, y: cy, vx: Math.cos(b) * v, vy: Math.sin(b) * v, dmg: 1, vida: 0.38, cor: '#ff8be8', pierce: false, larg: 5 });
+      }
+      municao[1]--;
+      tremor = Math.max(tremor, 4);
+    } else {
+      tiros.push({ x: cx, y: cy, vx: Math.cos(a) * 1150, vy: Math.sin(a) * 1150, dmg: 0.7, vida: 0.9, cor: '#00f0ff', pierce: true, larg: 3, atingidos: new Set() });
+      municao[2]--;
+    }
+    cooldown = ARMAS[armaAtual].cd;
+    if (municao[armaAtual] <= 0) { armaAtual = 0; banner('', 'SEM MUNIÇÃO · VOLTOU PARA O BLASTER'); }
+    atualizarHUD(true);
+  }
+
+  function lancarGranada() {
+    if (estado !== 'jogando' || nGranadas <= 0) return;
+    nGranadas--;
+    const a = jog.ang;
+    granadas.push({ x: jog.x, y: jog.y, vx: Math.cos(a) * 420, vy: Math.sin(a) * 420, t: 0.9 });
+    atualizarHUD(true);
+  }
+
+  function explodir(g) {
+    const raio = 140 * S;
+    for (let i = 0; i < 40; i++) {
+      const a = Math.random() * Math.PI * 2, v = rnd(80, 380);
+      particulas.push({ x: g.x, y: g.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, vida: rnd(0.4, 0.8), max: 0.8, cor: Math.random() < 0.5 ? '#ff9a00' : '#ffe600', r: rnd(3, 7) });
+    }
+    particulas.push({ x: g.x, y: g.y, vx: 0, vy: 0, vida: 0.35, max: 0.35, onda: raio, cor: '#ff9a00' });
+    zumbis.forEach(z => { if (Math.hypot(z.x - g.x, z.y - g.y) < raio + z.r) ferir(z, 8); });
+    tremor = 14;
+  }
+
+  function ferir(z, dmg) {
+    z.hp -= dmg; z.flash = 0.1;
+    if (z.hp <= 0 && !z.morto) matar(z);
+  }
+
+  function matar(z) {
+    z.morto = true;
+    combo = comboT > 0 ? Math.min(8, combo + 1) : 1;
+    comboT = 2;
+    const ganho = (z.chefe ? 2000 : 100) * combo;
+    pontos += ganho;
+    textos.push({ x: z.x, y: z.y - z.r, txt: '+' + ganho, vida: 1, cor: '#ffe600' });
+    const n = z.chefe ? 60 : 16;
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2, v = rnd(40, z.chefe ? 420 : 240);
+      particulas.push({ x: z.x, y: z.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, vida: rnd(0.3, 0.8), max: 0.8, cor: z.chefe ? '#c23cf0' : '#39ff14', r: rnd(2, 6) });
+    }
+    particulas.push({ x: z.x, y: z.y, vx: 0, vy: 0, vida: 6, max: 6, mancha: z.r * 1.2, cor: z.chefe ? 'rgba(194,60,240,' : 'rgba(57,255,20,' });
+    if (z.chefe) { tremor = 20; banner('CHEFÃO DERROTADO!', '+' + ganho); }
+    if (Math.random() < (z.chefe ? 1 : 0.12)) soltarItem(z.x, z.y);
+    atualizarHUD(true);
+  }
+
+  function soltarItem(x, y) {
+    const tipos = ['vida', 'vida', 'municao', 'granada'];
+    itens.push({ x, y, tipo: tipos[Math.floor(Math.random() * tipos.length)], vida: 10 });
+  }
+
+  function pegarItem(it) {
+    let txt;
+    if (it.tipo === 'vida') { jog.vida = Math.min(100, jog.vida + 25); txt = '+25 VIDA'; }
+    else if (it.tipo === 'granada') { nGranadas++; txt = '+1 GRANADA'; }
+    else { municao[1] += 8; if (liberadas[2]) municao[2] += 60; txt = '+MUNIÇÃO'; }
+    textos.push({ x: it.x, y: it.y - 20, txt, vida: 1.2, cor: '#00f0ff' });
+    atualizarHUD(true);
+  }
+
+  function fim() {
+    estado = 'fim';
+    if (pontos > recordeInicial) salvarRec(pontos);
+    $('fimTexto').innerHTML = `Você chegou à onda ${onda} com ${fmt(pontos)} pontos.` +
+      (pontos > recordeInicial ? '<br><b style="color:#ffe600">NOVO RECORDE!</b>' : `<br>Recorde: ${fmt(lerRec())}`);
+    setTimeout(() => { if (estado === 'fim') mostrarTela('telaFim'); }, 900);
+  }
+
+  // ---------- Atualização ----------
+  function atualizar(dt) {
+    // movimento do jogador
+    let mx = 0, my = 0;
+    if (teclas['a'] || teclas['arrowleft']) mx--;
+    if (teclas['d'] || teclas['arrowright']) mx++;
+    if (teclas['w'] || teclas['arrowup']) my--;
+    if (teclas['s'] || teclas['arrowdown']) my++;
+    if (stickA.id !== null) { mx = stickA.dx / 50; my = stickA.dy / 50; }
+    const ml = Math.hypot(mx, my);
+    if (ml > 1) { mx /= ml; my /= ml; }
+    const vel = 230 * S;
+    jog.x = Math.max(24, Math.min(W - 24, jog.x + mx * vel * dt));
+    jog.y = Math.max(24, Math.min(H - 24, jog.y + my * vel * dt));
+
+    // mira e tiro
+    let atirando = false;
+    if (TOUCH && stickB.id !== null && Math.hypot(stickB.dx, stickB.dy) > 14) {
+      jog.ang = Math.atan2(stickB.dy, stickB.dx); atirando = true;
+    } else if (!TOUCH) {
+      jog.ang = Math.atan2(mouse.y - jog.y, mouse.x - jog.x); atirando = mouse.down;
+    }
+    cooldown -= dt;
+    if (atirando && cooldown <= 0) atirar();
+
+    jog.inv -= dt; comboT -= dt; tremor = Math.max(0, tremor - dt * 40);
+    if (comboT <= 0 && combo) { combo = 0; atualizarHUD(true); }
+
+    // nascimento de zumbis
+    if (faltam > 0) {
+      spawnT -= dt;
+      if (spawnT <= 0) { criarZumbi(false); faltam--; spawnT = Math.max(0.25, 1.2 - onda * 0.07) * rnd(0.6, 1.3); }
+    } else if (!zumbis.length) {
+      intervaloOnda += dt;
+      if (intervaloOnda > 1.5) { intervaloOnda = 0; proximaOnda(); }
+    }
+
+    // zumbis
+    zumbis.forEach(z => {
+      const a = Math.atan2(jog.y - z.y, jog.x - z.x);
+      z.x += Math.cos(a) * z.spd * dt; z.y += Math.sin(a) * z.spd * dt;
+      z.wob += dt * 6; z.flash -= dt;
+      if (z.chefe) {
+        z.cusp -= dt;
+        if (z.cusp <= 0) {
+          z.cusp = 2.5;
+          for (let i = 0; i < 10; i++) {
+            const b = (i / 10) * Math.PI * 2;
+            gosmas.push({ x: z.x, y: z.y, vx: Math.cos(b) * 200 * S, vy: Math.sin(b) * 200 * S, vida: 4 });
+          }
+        }
+      }
+      if (Math.hypot(z.x - jog.x, z.y - jog.y) < z.r + 16 * S && jog.inv <= 0) {
+        dano(z.chefe ? 25 : 12);
+        jog.x += Math.cos(a) * 30; jog.y += Math.sin(a) * 30;
+      }
+    });
+    // separa zumbis para não ficarem um em cima do outro
+    for (let i = 0; i < zumbis.length; i++) for (let j = i + 1; j < zumbis.length; j++) {
+      const a = zumbis[i], b = zumbis[j], dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy) || 1, min = (a.r + b.r) * 0.8;
+      if (d < min) { const p = (min - d) / 2 / d; a.x -= dx * p; a.y -= dy * p; b.x += dx * p; b.y += dy * p; }
+    }
+
+    // tiros
+    tiros.forEach(t => {
+      t.x += t.vx * dt; t.y += t.vy * dt; t.vida -= dt;
+      for (const z of zumbis) {
+        if (z.morto || Math.hypot(z.x - t.x, z.y - t.y) > z.r) continue;
+        if (t.pierce) { if (t.atingidos.has(z)) continue; t.atingidos.add(z); ferir(z, t.dmg); }
+        else { ferir(z, t.dmg); t.vida = 0; break; }
+      }
+    });
+    tiros = tiros.filter(t => t.vida > 0 && t.x > -20 && t.x < W + 20 && t.y > -20 && t.y < H + 20);
+
+    // gosmas do chefão
+    gosmas.forEach(g => {
+      g.x += g.vx * dt; g.y += g.vy * dt; g.vida -= dt;
+      if (Math.hypot(g.x - jog.x, g.y - jog.y) < 20 * S && jog.inv <= 0) { dano(10); g.vida = 0; }
+    });
+    gosmas = gosmas.filter(g => g.vida > 0);
+
+    // granadas
+    granadas.forEach(g => {
+      g.x += g.vx * dt; g.y += g.vy * dt; g.vx *= 0.94; g.vy *= 0.94; g.t -= dt;
+      if (g.t <= 0) explodir(g);
+    });
+    granadas = granadas.filter(g => g.t > 0);
+
+    zumbis = zumbis.filter(z => !z.morto);
+
+    // itens
+    itens.forEach(it => {
+      it.vida -= dt;
+      if (Math.hypot(it.x - jog.x, it.y - jog.y) < 34 * S) { pegarItem(it); it.vida = 0; }
+    });
+    itens = itens.filter(it => it.vida > 0);
+
+    particulas.forEach(p => { p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 0.92; p.vy *= 0.92; p.vida -= dt; });
+    particulas = particulas.filter(p => p.vida > 0);
+    textos.forEach(t => { t.y -= 40 * dt; t.vida -= dt; });
+    textos = textos.filter(t => t.vida > 0);
+
+    atualizarHUD(false);
+  }
+
+  function dano(n) {
+    jog.vida -= n; jog.inv = 0.8; tremor = 10;
+    atualizarHUD(true);
+    if (jog.vida <= 0) { jog.vida = 0; fim(); }
+  }
+
+  // ---------- HUD ----------
+  let ultimoHUD = '';
+  function atualizarHUD(forcar) {
+    const restam = faltam + zumbis.length;
+    const chave = [jog.vida, onda, restam, pontos, combo, armaAtual, municao.join(), nGranadas, liberadas.join()].join('|');
+    if (!forcar && chave === ultimoHUD) return;
+    ultimoHUD = chave;
+    $('vidaTxt').textContent = Math.ceil(jog.vida);
+    $('barra').firstElementChild.style.width = jog.vida + '%';
+    $('barra').classList.toggle('baixa', jog.vida <= 30);
+    $('onda').textContent = 'ONDA ' + String(onda).padStart(2, '0');
+    $('restam').textContent = 'ZUMBIS RESTANTES: ' + restam;
+    $('pontos').textContent = fmt(pontos);
+    $('combo').textContent = 'COMBO x' + combo;
+    $('combo').style.visibility = combo >= 2 ? 'visible' : 'hidden';
+    ARMAS.forEach((a, i) => {
+      const el = $('arma' + i);
+      el.classList.toggle('ativa', i === armaAtual);
+      el.classList.toggle('bloq', !liberadas[i]);
+      el.lastElementChild.textContent = !liberadas[i] ? 'BLOQ.' : municao[i] === Infinity ? '∞' : String(municao[i]).padStart(2, '0');
+    });
+    $('granadas').textContent = 'x' + nGranadas;
+    $('btnGranada').textContent = 'G x' + nGranadas;
+    const m = municao[armaAtual];
+    $('btnArma').textContent = ARMAS[armaAtual].nome + ' ' + (m === Infinity ? '∞' : m);
+    $('btnArma').style.color = $('btnArma').style.borderColor = ARMAS[armaAtual].cor;
+  }
+
+  // ---------- Desenho ----------
+  function desenharZumbi(z) {
+    ctx.save();
+    ctx.translate(z.x, z.y);
+    ctx.rotate(Math.sin(z.wob) * 0.12);
+    const k = (z.r * 2) / 64;
+    ctx.scale(k, k);
+    ctx.translate(-32, -36);
+    const branco = z.flash > 0;
+    const c = z.chefe
+      ? { ant: '#ff8be8', braco: '#b02ad6', corpo: '#8a1fb8', cab: '#c23cf0', esc: '#2a0640', brilho: 'rgba(255,56,100,.8)' }
+      : { ant: '#6bff7a', braco: '#3ddc5a', corpo: '#2fbf4a', cab: '#6bff7a', esc: '#0b3d17', brilho: 'rgba(57,255,20,.7)' };
+    ctx.shadowColor = c.brilho; ctx.shadowBlur = 14 / k;
+    ctx.lineCap = 'round';
+    // antenas
+    ctx.strokeStyle = c.ant; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.moveTo(24, 11); ctx.lineTo(17, 2); ctx.moveTo(40, 11); ctx.lineTo(47, 2); ctx.stroke();
+    ctx.fillStyle = '#ffe600';
+    ctx.beginPath(); ctx.arc(17, 2.5, 2.8, 0, 7); ctx.arc(47, 2.5, 2.8, 0, 7); ctx.fill();
+    // braços
+    const bal = Math.sin(z.wob * 1.3) * 3;
+    ctx.strokeStyle = c.braco; ctx.lineWidth = 5;
+    ctx.beginPath(); ctx.moveTo(19, 40); ctx.lineTo(5, 30 + bal); ctx.moveTo(45, 40); ctx.lineTo(59, 30 - bal); ctx.stroke();
+    ctx.shadowBlur = 0;
+    // corpo e cabeça
+    ctx.lineWidth = 2; ctx.strokeStyle = c.esc;
+    ctx.fillStyle = branco ? '#ffffff' : c.corpo;
+    ctx.beginPath(); ctx.ellipse(32, 44, 15, 17, 0, 0, 7); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = branco ? '#ffffff' : c.cab;
+    ctx.beginPath(); ctx.arc(32, 22, 14, 0, 7); ctx.fill(); ctx.stroke();
+    // olho(s)
+    if (z.chefe) {
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(25, 20, 5, 0, 7); ctx.arc(39, 20, 5, 0, 7); ctx.fill();
+      ctx.fillStyle = '#ff3864'; ctx.beginPath(); ctx.arc(26, 20, 2.5, 0, 7); ctx.arc(40, 20, 2.5, 0, 7); ctx.fill();
+    } else {
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(32, 20, 7, 0, 7); ctx.fill();
+      ctx.fillStyle = '#ff2bd6'; ctx.beginPath(); ctx.arc(33, 20, 3.6, 0, 7); ctx.fill();
+    }
+    // boca
+    ctx.strokeStyle = c.esc; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.moveTo(24, 30); ctx.quadraticCurveTo(32, 36, 40, 30); ctx.stroke();
+    ctx.restore();
+
+    if (z.chefe) {
+      const w = 130 * S, x = z.x - w / 2, y = z.y - z.r - 26 * S;
+      ctx.fillStyle = 'rgba(255,56,100,.2)'; ctx.fillRect(x, y, w, 8);
+      ctx.fillStyle = '#ff3864'; ctx.shadowColor = '#ff3864'; ctx.shadowBlur = 8;
+      ctx.fillRect(x, y, w * Math.max(0, z.hp / z.max), 8); ctx.shadowBlur = 0;
+      ctx.font = `10px 'Press Start 2P', monospace`; ctx.textAlign = 'center';
+      ctx.fillText('CHEFÃO', z.x, y - 6);
+    }
+  }
+
+  function desenharJogador() {
+    if (jog.inv > 0 && Math.floor(jog.inv * 20) % 2) return; // pisca quando leva dano
+    const k = (80 * S) / 64;
+    ctx.save();
+    ctx.translate(jog.x, jog.y); ctx.rotate(jog.ang); ctx.scale(k, k); ctx.translate(-32, -32);
+    ctx.shadowColor = 'rgba(0,240,255,.8)'; ctx.shadowBlur = 12 / k;
+    ctx.fillStyle = ARMAS[armaAtual].cor === '#00f0ff' ? '#ff2bd6' : ARMAS[armaAtual].cor;
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.roundRect ? ctx.roundRect(34, 27, 28, 10, 3) : ctx.rect(34, 27, 28, 10); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#ff9a00'; ctx.fillRect(14, 22, 6, 20);
+    ctx.fillStyle = '#1b2a4a'; ctx.strokeStyle = '#00f0ff'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(32, 32, 18, 0, 7); ctx.fill(); ctx.stroke();
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = 'rgba(0,240,255,.85)'; ctx.beginPath(); ctx.arc(36, 32, 9, 0, 7); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.9)'; ctx.beginPath(); ctx.arc(39, 29, 3, 0, 7); ctx.fill();
+    ctx.restore();
+  }
+
+  function desenharItem(it) {
+    if (it.vida < 3 && Math.floor(it.vida * 6) % 2) return;
+    const cores = { vida: '#00f0ff', municao: '#ff2bd6', granada: '#ff9a00' };
+    const cor = cores[it.tipo], s = 40 * S, bob = Math.sin(it.vida * 4) * 3;
+    ctx.save();
+    ctx.translate(it.x, it.y + bob);
+    ctx.shadowColor = cor; ctx.shadowBlur = 16;
+    ctx.strokeStyle = cor; ctx.lineWidth = 2; ctx.fillStyle = cor + '33';
+    ctx.beginPath(); ctx.roundRect ? ctx.roundRect(-s / 2, -s / 2, s, s, 10) : ctx.rect(-s / 2, -s / 2, s, s); ctx.fill(); ctx.stroke();
+    ctx.shadowBlur = 0; ctx.lineWidth = 3; ctx.lineCap = 'round';
+    if (it.tipo === 'vida') { ctx.beginPath(); ctx.moveTo(0, -s / 4); ctx.lineTo(0, s / 4); ctx.moveTo(-s / 4, 0); ctx.lineTo(s / 4, 0); ctx.stroke(); }
+    else if (it.tipo === 'granada') { ctx.fillStyle = cor; ctx.beginPath(); ctx.arc(0, 2, s / 5, 0, 7); ctx.fill(); ctx.fillRect(-3, -s / 4, 6, 6); }
+    else { ctx.fillStyle = cor; for (let i = -1; i <= 1; i++) ctx.fillRect(i * 7 - 2, -s / 4, 4, s / 2); }
+    ctx.fillStyle = cor; ctx.font = `${Math.round(7 * S + 2)}px 'Press Start 2P', monospace`; ctx.textAlign = 'center';
+    ctx.fillText({ vida: 'VIDA', municao: 'MUNIÇÃO', granada: 'GRANADA' }[it.tipo], 0, s / 2 + 14);
+    ctx.restore();
+  }
+
+  function desenharMira() {
+    if (TOUCH) return;
+    ctx.save();
+    ctx.strokeStyle = '#ffe600'; ctx.shadowColor = '#ffe600'; ctx.shadowBlur = 10; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(mouse.x, mouse.y, 16, 0, 7); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(mouse.x, mouse.y - 26); ctx.lineTo(mouse.x, mouse.y - 8); ctx.moveTo(mouse.x, mouse.y + 8); ctx.lineTo(mouse.x, mouse.y + 26);
+    ctx.moveTo(mouse.x - 26, mouse.y); ctx.lineTo(mouse.x - 8, mouse.y); ctx.moveTo(mouse.x + 8, mouse.y); ctx.lineTo(mouse.x + 26, mouse.y); ctx.stroke();
+    ctx.restore();
+  }
+
+  function desenhar() {
+    ctx.clearRect(0, 0, W, H);
+    if (estado === 'inicio') return desenharMira();
+    ctx.save();
+    if (tremor > 0) ctx.translate(rnd(-tremor, tremor) * 0.5, rnd(-tremor, tremor) * 0.5);
+
+    // manchas no chão
+    particulas.forEach(p => {
+      if (!p.mancha) return;
+      ctx.fillStyle = p.cor + Math.min(0.5, p.vida / 6) + ')';
+      ctx.beginPath(); ctx.ellipse(p.x, p.y + 8, p.mancha, p.mancha * 0.55, 0, 0, 7); ctx.fill();
+    });
+    itens.forEach(desenharItem);
+
+    granadas.forEach(g => {
+      ctx.fillStyle = '#ff9a00'; ctx.shadowColor = '#ff9a00'; ctx.shadowBlur = 12;
+      ctx.beginPath(); ctx.arc(g.x, g.y, 7 * S, 0, 7); ctx.fill();
+      if (Math.floor(g.t * 10) % 2) { ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(g.x, g.y, 3, 0, 7); ctx.fill(); }
+      ctx.shadowBlur = 0;
+    });
+
+    zumbis.forEach(desenharZumbi);
+    desenharJogador();
+
+    ctx.lineCap = 'round';
+    tiros.forEach(t => {
+      const v = Math.hypot(t.vx, t.vy), cx = t.vx / v, cy = t.vy / v, l = t.pierce ? 34 : 14;
+      ctx.strokeStyle = t.cor; ctx.shadowColor = t.cor; ctx.shadowBlur = 12; ctx.lineWidth = t.larg;
+      ctx.beginPath(); ctx.moveTo(t.x - cx * l, t.y - cy * l); ctx.lineTo(t.x, t.y); ctx.stroke();
+    });
+    ctx.shadowBlur = 0;
+
+    gosmas.forEach(g => {
+      ctx.fillStyle = '#c23cf0'; ctx.shadowColor = '#c23cf0'; ctx.shadowBlur = 14;
+      ctx.beginPath(); ctx.arc(g.x, g.y, 9 * S, 0, 7); ctx.fill();
+    });
+    ctx.shadowBlur = 0;
+
+    particulas.forEach(p => {
+      if (p.mancha) return;
+      const a = Math.max(0, p.vida / p.max);
+      if (p.onda) {
+        ctx.strokeStyle = `rgba(255,154,0,${a})`; ctx.lineWidth = 6;
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.onda * (1 - a * 0.7), 0, 7); ctx.stroke();
+        return;
+      }
+      ctx.globalAlpha = a; ctx.fillStyle = p.cor;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 7); ctx.fill();
+    });
+    ctx.globalAlpha = 1;
+
+    ctx.textAlign = 'center';
+    textos.forEach(t => {
+      ctx.globalAlpha = Math.min(1, t.vida * 2);
+      ctx.fillStyle = t.cor; ctx.shadowColor = t.cor; ctx.shadowBlur = 8;
+      ctx.font = `${Math.round(12 * S + 2)}px 'Press Start 2P', monospace`;
+      ctx.fillText(t.txt, t.x, t.y);
+    });
+    ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+    ctx.restore();
+
+    // tela fica vermelha quando leva dano
+    if (jog.inv > 0.5) { ctx.fillStyle = `rgba(255,56,100,${(jog.inv - 0.5) * 0.6})`; ctx.fillRect(0, 0, W, H); }
+
+    desenharMira();
+    desenharRadar();
+    desenharSticks();
+  }
+
+  const rc = $('radar').getContext('2d');
+  function desenharRadar() {
+    if (TOUCH) return;
+    rc.clearRect(0, 0, 130, 130);
+    const map = (x, y) => [65 + ((x - W / 2) / Math.max(W, H)) * 110, 65 + ((y - H / 2) / Math.max(W, H)) * 110];
+    zumbis.forEach(z => {
+      let [x, y] = map(z.x, z.y);
+      const d = Math.hypot(x - 65, y - 65);
+      if (d > 60) { x = 65 + (x - 65) / d * 60; y = 65 + (y - 65) / d * 60; }
+      rc.fillStyle = z.chefe ? '#ff3864' : '#39ff14';
+      rc.beginPath(); rc.arc(x, y, z.chefe ? 5 : 3, 0, 7); rc.fill();
+    });
+    const [px, py] = map(jog.x, jog.y);
+    rc.fillStyle = '#00f0ff'; rc.beginPath(); rc.arc(px, py, 3.5, 0, 7); rc.fill();
+  }
+
+  function desenharSticks() {
+    if (!TOUCH) return;
+    $('stickA').firstElementChild.style.transform = `translate(${stickA.dx * 0.7}px, ${stickA.dy * 0.7}px)`;
+    $('stickB').firstElementChild.style.transform = `translate(${stickB.dx * 0.7}px, ${stickB.dy * 0.7}px)`;
+  }
+
+  // ---------- Laço principal ----------
+  let ultimo = performance.now();
+  function loop(agora) {
+    const dt = Math.min(0.05, (agora - ultimo) / 1000);
+    ultimo = agora;
+    if (estado === 'jogando' || estado === 'fim') {
+      if (estado === 'jogando') atualizar(dt);
+      else {
+        particulas.forEach(p => { p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 0.92; p.vy *= 0.92; p.vida -= dt; });
+        particulas = particulas.filter(p => p.vida > 0);
+      }
+    }
+    if (estado !== 'pausado') desenhar();
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+
+  // expõe só para testes automáticos
+  window.__zumbis = { estado: () => estado, onda: () => onda, pontos: () => pontos, vida: () => jog && jog.vida, zumbis: () => zumbis && zumbis.length, alvo: () => zumbis && zumbis[0] && [zumbis[0].x, zumbis[0].y] };
+})();
+</script>
+</body>
+</html>

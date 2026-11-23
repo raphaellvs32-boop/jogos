@@ -12,6 +12,7 @@ Site de jogos simples feitos em HTML, CSS e JavaScript puro, sem instalação e 
 | Jogo da Memória | `jogos/memoria/` | Clique ou toque nas cartas |
 | 2048 | `jogos/2048/` | Setas, WASD ou deslizar o dedo |
 | Neon Blocos | `jogos/neon-blocos/` | Setas, X, Espaço, C, P · botões e gestos no celular |
+| Zumbis do Espaço | `jogos/zumbis-do-espaco/` | WASD + mouse, 1/2/3, G, P · dois controles virtuais no celular (deitado) |
 
 Os recordes ficam salvos no próprio navegador (localStorage).
 
