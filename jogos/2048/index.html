@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>2048 · Jogos</title>
+  <link rel="stylesheet" href="../../style.css">
+  <style>
+    .tela { position: relative; }
+    .tabuleiro {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      padding: 10px;
+      background: var(--panel);
+      border-radius: var(--radius);
+      width: min(92vw, 420px);
+      touch-action: none;
+      user-select: none;
+    }
+    .cel {
+      aspect-ratio: 1;
+      border-radius: 8px;
+      background: var(--panel-2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: clamp(1.2rem, 7vw, 2rem);
+      transition: background .1s;
+    }
+    .cel.novo { animation: surgir .15s ease-out; }
+    @keyframes surgir { from { transform: scale(.5); } to { transform: scale(1); } }
+    .v2    { background: #eee4da; color: #776e65; }
+    .v4    { background: #ede0c8; color: #776e65; }
+    .v8    { background: #f2b179; color: #fff; }
+    .v16   { background: #f59563; color: #fff; }
+    .v32   { background: #f67c5f; color: #fff; }
+    .v64   { background: #f65e3b; color: #fff; }
+    .v128  { background: #edcf72; color: #fff; font-size: clamp(1rem, 6vw, 1.7rem); }
+    .v256  { background: #edcc61; color: #fff; font-size: clamp(1rem, 6vw, 1.7rem); }
+    .v512  { background: #edc850; color: #fff; font-size: clamp(1rem, 6vw, 1.7rem); }
+    .v1024 { background: #edc53f; color: #fff; font-size: clamp(.9rem, 5vw, 1.4rem); }
+    .v2048 { background: #edc22e; color: #fff; font-size: clamp(.9rem, 5vw, 1.4rem); }
+    .vgrande { background: #3c3a32; color: #fff; font-size: clamp(.8rem, 4.5vw, 1.2rem); }
+  </style>
+</head>
+<body>
+  <header class="topo">
+    <h1>🔢 2048</h1>
+    <a class="voltar" href="../../">← Voltar</a>
+  </header>
+
+  <main class="area-jogo">
+    <div class="placar">
+      <div class="item"><span class="rotulo">Pontos</span><span class="valor" id="pontos">0</span></div>
+      <div class="item"><span class="rotulo">Recorde</span><span class="valor" id="recorde">0</span></div>
+    </div>
+
+    <div class="tela">
+      <div class="tabuleiro" id="tabuleiro"></div>
+      <div class="mensagem" id="msg">
+        <h2 id="msgTitulo"></h2>
+        <p id="msgTexto"></p>
+        <button class="botao" id="msgBotao"></button>
+      </div>
+    </div>
+
+    <button class="botao" id="novo">Novo jogo</button>
+    <p class="dica">Use as setas, WASD ou deslize o dedo sobre o tabuleiro.</p>
+  </main>
+
+  <script>
+    const tab = document.getElementById('tabuleiro');
+    const elPontos = document.getElementById('pontos');
+    const elRecorde = document.getElementById('recorde');
+    const msg = document.getElementById('msg');
+
+    let grade, pontos, venceu, continuando, novaPos;
+
+    function lerRecorde() { try { return +localStorage.getItem('2048-recorde') || 0; } catch { return 0; } }
+    function salvarRecorde(v) { try { localStorage.setItem('2048-recorde', v); } catch {} }
+
+    function iniciar() {
+      grade = Array.from({ length: 4 }, () => Array(4).fill(0));
+      pontos = 0; venceu = false; continuando = false;
+      msg.classList.remove('visivel');
+      adicionar(); adicionar();
+      desenhar();
+    }
+
+    function adicionar() {
+      const vazias = [];
+      grade.forEach((l, i) => l.forEach((v, j) => { if (!v) vazias.push([i, j]); }));
+      if (!vazias.length) return;
+      const [i, j] = vazias[Math.floor(Math.random() * vazias.length)];
+      grade[i][j] = Math.random() < 0.9 ? 2 : 4;
+      novaPos = i * 4 + j;
+    }
+
+    // Desliza e junta uma linha para a esquerda
+    function deslizar(linha) {
+      const nums = linha.filter(v => v);
+      for (let k = 0; k < nums.length - 1; k++) {
+        if (nums[k] === nums[k + 1]) {
+          nums[k] *= 2;
+          pontos += nums[k];
+          if (nums[k] === 2048) venceu = true;
+          nums.splice(k + 1, 1);
+        }
+      }
+      while (nums.length < 4) nums.push(0);
+      return nums;
+    }
+
+    function girar(g) { return g[0].map((_, j) => g.map(l => l[j]).reverse()); } // 90° horário
+
+    function mover(direcao) {
+      if (msg.classList.contains('visivel')) return;
+      // quantos giros para que a direção vire "esquerda"
+      const giros = { esq: 0, baixo: 1, dir: 2, cima: 3 }[direcao];
+      let g = grade.map(l => [...l]);
+      for (let k = 0; k < giros; k++) g = girar(g);
+      g = g.map(deslizar);
+      for (let k = 0; k < (4 - giros) % 4; k++) g = girar(g);
+
+      if (JSON.stringify(g) === JSON.stringify(grade)) return; // nada mudou
+      grade = g;
+      adicionar();
+      desenhar();
+
+      if (venceu && !continuando) {
+        mostrar('Você chegou ao 2048! 🎉', `Pontuação: ${pontos}`, 'Continuar jogando', () => {
+          continuando = true; msg.classList.remove('visivel');
+        });
+      } else if (!temMovimento()) {
+        mostrar('Fim de jogo', `Pontuação: ${pontos}`, 'Tentar de novo', iniciar);
+      }
+    }
+
+    function temMovimento() {
+      for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) {
+        const v = grade[i][j];
+        if (!v) return true;
+        if (j < 3 && v === grade[i][j + 1]) return true;
+        if (i < 3 && v === grade[i + 1][j]) return true;
+      }
+      return false;
+    }
+
+    function mostrar(titulo, texto, botao, acao) {
+      document.getElementById('msgTitulo').textContent = titulo;
+      document.getElementById('msgTexto').textContent = texto;
+      const b = document.getElementById('msgBotao');
+      b.textContent = botao; b.onclick = acao;
+      msg.classList.add('visivel');
+    }
+
+    function desenhar() {
+      tab.innerHTML = '';
+      grade.flat().forEach((v, idx) => {
+        const c = document.createElement('div');
+        c.className = 'cel' + (v ? (v > 2048 ? ' vgrande' : ' v' + v) : '') + (idx === novaPos ? ' novo' : '');
+        c.textContent = v || '';
+        tab.appendChild(c);
+      });
+      elPontos.textContent = pontos;
+      if (pontos > lerRecorde()) salvarRecorde(pontos);
+      elRecorde.textContent = lerRecorde();
+    }
+
+    document.addEventListener('keydown', e => {
+      const mapa = { ArrowUp: 'cima', ArrowDown: 'baixo', ArrowLeft: 'esq', ArrowRight: 'dir',
+                     w: 'cima', s: 'baixo', a: 'esq', d: 'dir', W: 'cima', S: 'baixo', A: 'esq', D: 'dir' };
+      if (mapa[e.key]) { e.preventDefault(); mover(mapa[e.key]); }
+    });
+
+    let toque = null;
+    tab.addEventListener('touchstart', e => { toque = e.touches[0]; }, { passive: true });
+    tab.addEventListener('touchend', e => {
+      if (!toque) return;
+      const t = e.changedTouches[0];
+      const dx = t.clientX - toque.clientX, dy = t.clientY - toque.clientY;
+      if (Math.max(Math.abs(dx), Math.abs(dy)) > 25) {
+        mover(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'dir' : 'esq') : (dy > 0 ? 'baixo' : 'cima'));
+      }
+      toque = null;
+    });
+
+    document.getElementById('novo').onclick = iniciar;
+    iniciar();
+  </script>
+</body>
+</html>

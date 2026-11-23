@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Snake · Jogos</title>
+  <link rel="stylesheet" href="../../style.css">
+  <style>
+    .tela { position: relative; }
+    canvas {
+      background: var(--panel);
+      border-radius: var(--radius);
+      width: min(90vw, 420px);
+      height: min(90vw, 420px);
+      touch-action: none;
+      display: block;
+    }
+    .setas { display: grid; grid-template-columns: repeat(3, 60px); gap: 8px; }
+    .setas button { height: 56px; font-size: 1.4rem; }
+    .setas .vazio { visibility: hidden; }
+  </style>
+</head>
+<body>
+  <header class="topo">
+    <h1>🐍 Snake</h1>
+    <a class="voltar" href="../../">← Voltar</a>
+  </header>
+
+  <main class="area-jogo">
+    <div class="placar">
+      <div class="item"><span class="rotulo">Pontos</span><span class="valor" id="pontos">0</span></div>
+      <div class="item"><span class="rotulo">Recorde</span><span class="valor" id="recorde">0</span></div>
+    </div>
+
+    <div class="tela">
+      <canvas id="tela" width="400" height="400"></canvas>
+      <div class="mensagem visivel" id="msg">
+        <h2 id="msgTitulo">Snake</h2>
+        <p id="msgTexto">Use as setas, WASD ou deslize o dedo.</p>
+        <button class="botao" id="iniciar">Começar</button>
+      </div>
+    </div>
+
+    <div class="setas">
+      <span class="vazio"></span><button class="botao" data-d="cima">▲</button><span class="vazio"></span>
+      <button class="botao" data-d="esq">◀</button><button class="botao" data-d="baixo">▼</button><button class="botao" data-d="dir">▶</button>
+    </div>
+    <p class="dica">Espaço ou P para pausar.</p>
+  </main>
+
+  <script>
+    const canvas = document.getElementById('tela');
+    const ctx = canvas.getContext('2d');
+    const N = 20;                  // células por lado
+    const T = canvas.width / N;    // tamanho da célula
+    const DIRS = { cima: [0, -1], baixo: [0, 1], esq: [-1, 0], dir: [1, 0] };
+
+    const elPontos = document.getElementById('pontos');
+    const elRecorde = document.getElementById('recorde');
+    const msg = document.getElementById('msg');
+
+    let cobra, dir, proxDir, fruta, pontos, intervalo, timer, rodando = false, pausado = false;
+
+    function lerRecorde() { try { return +localStorage.getItem('snake-recorde') || 0; } catch { return 0; } }
+    function salvarRecorde(v) { try { localStorage.setItem('snake-recorde', v); } catch {} }
+    elRecorde.textContent = lerRecorde();
+
+    function novaFruta() {
+      let p;
+      do { p = { x: Math.floor(Math.random() * N), y: Math.floor(Math.random() * N) }; }
+      while (cobra.some(c => c.x === p.x && c.y === p.y));
+      return p;
+    }
+
+    function iniciar() {
+      cobra = [{ x: 10, y: 10 }, { x: 9, y: 10 }, { x: 8, y: 10 }];
+      dir = DIRS.dir; proxDir = dir;
+      fruta = novaFruta();
+      pontos = 0; intervalo = 140;
+      elPontos.textContent = 0;
+      msg.classList.remove('visivel');
+      rodando = true; pausado = false;
+      clearTimeout(timer);
+      passo();
+    }
+
+    function passo() {
+      if (!rodando) return;
+      if (!pausado) {
+        dir = proxDir;
+        const cab = { x: cobra[0].x + dir[0], y: cobra[0].y + dir[1] };
+        const bateu = cab.x < 0 || cab.y < 0 || cab.x >= N || cab.y >= N ||
+                      cobra.some(c => c.x === cab.x && c.y === cab.y);
+        if (bateu) return fim();
+        cobra.unshift(cab);
+        if (cab.x === fruta.x && cab.y === fruta.y) {
+          pontos++;
+          elPontos.textContent = pontos;
+          fruta = novaFruta();
+          intervalo = Math.max(60, intervalo - 3);   // acelera aos poucos
+        } else {
+          cobra.pop();
+        }
+        desenhar();
+      }
+      timer = setTimeout(passo, intervalo);
+    }
+
+    function desenhar() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#ef4444';
+      ctx.beginPath();
+      ctx.arc(fruta.x * T + T / 2, fruta.y * T + T / 2, T / 2.4, 0, Math.PI * 2);
+      ctx.fill();
+      cobra.forEach((c, i) => {
+        ctx.fillStyle = i === 0 ? '#4ade80' : '#22c55e';
+        ctx.fillRect(c.x * T + 1, c.y * T + 1, T - 2, T - 2);
+      });
+    }
+
+    function fim() {
+      rodando = false;
+      const rec = lerRecorde();
+      if (pontos > rec) { salvarRecorde(pontos); elRecorde.textContent = pontos; }
+      document.getElementById('msgTitulo').textContent = 'Fim de jogo';
+      document.getElementById('msgTexto').textContent = `Você fez ${pontos} ponto${pontos === 1 ? '' : 's'}.` + (pontos > rec ? ' Novo recorde! 🎉' : '');
+      document.getElementById('iniciar').textContent = 'Jogar de novo';
+      msg.classList.add('visivel');
+    }
+
+    function mudar(nome) {
+      const d = DIRS[nome];
+      if (!d || !rodando) return;
+      if (d[0] === -dir[0] && d[1] === -dir[1]) return;   // não volta para trás
+      proxDir = d;
+    }
+
+    document.getElementById('iniciar').onclick = iniciar;
+
+    document.addEventListener('keydown', e => {
+      const mapa = { ArrowUp: 'cima', ArrowDown: 'baixo', ArrowLeft: 'esq', ArrowRight: 'dir',
+                     w: 'cima', s: 'baixo', a: 'esq', d: 'dir', W: 'cima', S: 'baixo', A: 'esq', D: 'dir' };
+      if (mapa[e.key]) { e.preventDefault(); mudar(mapa[e.key]); }
+      else if ((e.key === ' ' || e.key === 'p' || e.key === 'P') && rodando) { e.preventDefault(); pausado = !pausado; }
+      else if (e.key === 'Enter' && !rodando) iniciar();
+    });
+
+    document.querySelectorAll('.setas button').forEach(b => {
+      b.addEventListener('pointerdown', e => { e.preventDefault(); mudar(b.dataset.d); });
+    });
+
+    // Deslizar o dedo
+    let toque = null;
+    canvas.addEventListener('touchstart', e => { toque = e.touches[0]; }, { passive: true });
+    canvas.addEventListener('touchend', e => {
+      if (!toque) return;
+      const t = e.changedTouches[0];
+      const dx = t.clientX - toque.clientX, dy = t.clientY - toque.clientY;
+      if (Math.max(Math.abs(dx), Math.abs(dy)) > 20) {
+        mudar(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'dir' : 'esq') : (dy > 0 ? 'baixo' : 'cima'));
+      }
+      toque = null;
+    });
+  </script>
+</body>
+</html>

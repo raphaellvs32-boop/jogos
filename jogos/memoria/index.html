@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jogo da Memória · Jogos</title>
+  <link rel="stylesheet" href="../../style.css">
+  <style>
+    .tela { position: relative; }
+    .tabuleiro {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      width: min(92vw, 440px);
+    }
+    .carta {
+      aspect-ratio: 1;
+      perspective: 600px;
+      cursor: pointer;
+      border: 0;
+      padding: 0;
+      background: none;
+    }
+    .carta .interno {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      transition: transform .35s;
+      transform-style: preserve-3d;
+    }
+    .carta.virada .interno, .carta.certa .interno { transform: rotateY(180deg); }
+    .carta .face {
+      position: absolute;
+      inset: 0;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      backface-visibility: hidden;
+      font-size: clamp(1.8rem, 8vw, 2.6rem);
+    }
+    .carta .verso { background: var(--accent); font-size: 1.6rem; color: rgba(255,255,255,.6); }
+    .carta .frente { background: var(--panel-2); transform: rotateY(180deg); }
+    .carta.certa .frente { background: #14532d; }
+  </style>
+</head>
+<body>
+  <header class="topo">
+    <h1>🧠 Jogo da Memória</h1>
+    <a class="voltar" href="../../">← Voltar</a>
+  </header>
+
+  <main class="area-jogo">
+    <div class="placar">
+      <div class="item"><span class="rotulo">Jogadas</span><span class="valor" id="jogadas">0</span></div>
+      <div class="item"><span class="rotulo">Tempo</span><span class="valor" id="tempo">0s</span></div>
+      <div class="item"><span class="rotulo">Melhor</span><span class="valor" id="melhor">–</span></div>
+    </div>
+
+    <div class="tela">
+      <div class="tabuleiro" id="tabuleiro"></div>
+      <div class="mensagem" id="msg">
+        <h2>Parabéns! 🎉</h2>
+        <p id="msgTexto"></p>
+        <button class="botao" id="denovo">Jogar de novo</button>
+      </div>
+    </div>
+
+    <button class="botao" id="reiniciar">Embaralhar de novo</button>
+  </main>
+
+  <script>
+    const SIMBOLOS = ['🍎', '🚚', '⚙️', '📦', '🏭', '🔧', '⭐', '🎯'];
+    const tab = document.getElementById('tabuleiro');
+    const elJogadas = document.getElementById('jogadas');
+    const elTempo = document.getElementById('tempo');
+    const elMelhor = document.getElementById('melhor');
+    const msg = document.getElementById('msg');
+
+    let abertas = [], acertos = 0, jogadas = 0, segundos = 0, relogio = null, travado = false;
+
+    function lerMelhor() { try { return +localStorage.getItem('memoria-melhor') || 0; } catch { return 0; } }
+    function salvarMelhor(v) { try { localStorage.setItem('memoria-melhor', v); } catch {} }
+    function mostrarMelhor() { const m = lerMelhor(); elMelhor.textContent = m ? m : '–'; }
+
+    function embaralhar(lista) {
+      for (let i = lista.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [lista[i], lista[j]] = [lista[j], lista[i]];
+      }
+      return lista;
+    }
+
+    function iniciar() {
+      clearInterval(relogio); relogio = null;
+      abertas = []; acertos = 0; jogadas = 0; segundos = 0; travado = false;
+      elJogadas.textContent = 0; elTempo.textContent = '0s';
+      msg.classList.remove('visivel');
+      mostrarMelhor();
+      tab.innerHTML = '';
+      embaralhar([...SIMBOLOS, ...SIMBOLOS]).forEach(s => {
+        const c = document.createElement('button');
+        c.className = 'carta';
+        c.dataset.s = s;
+        c.setAttribute('aria-label', 'Carta virada');
+        c.innerHTML = `<div class="interno"><div class="face verso">?</div><div class="face frente">${s}</div></div>`;
+        c.onclick = () => virar(c);
+        tab.appendChild(c);
+      });
+    }
+
+    function virar(c) {
+      if (travado || c.classList.contains('virada') || c.classList.contains('certa')) return;
+      if (!relogio) relogio = setInterval(() => { segundos++; elTempo.textContent = segundos + 's'; }, 1000);
+      c.classList.add('virada');
+      abertas.push(c);
+      if (abertas.length < 2) return;
+
+      jogadas++; elJogadas.textContent = jogadas;
+      const [a, b] = abertas;
+      if (a.dataset.s === b.dataset.s) {
+        a.classList.replace('virada', 'certa');
+        b.classList.replace('virada', 'certa');
+        abertas = [];
+        acertos++;
+        if (acertos === SIMBOLOS.length) vitoria();
+      } else {
+        travado = true;
+        setTimeout(() => {
+          a.classList.remove('virada'); b.classList.remove('virada');
+          abertas = []; travado = false;
+        }, 800);
+      }
+    }
+
+    function vitoria() {
+      clearInterval(relogio);
+      const m = lerMelhor();
+      const recorde = !m || jogadas < m;
+      if (recorde) salvarMelhor(jogadas);
+      mostrarMelhor();
+      document.getElementById('msgTexto').textContent =
+        `${jogadas} jogadas em ${segundos}s.` + (recorde ? ' Novo recorde!' : '');
+      setTimeout(() => msg.classList.add('visivel'), 400);
+    }
+
+    document.getElementById('reiniciar').onclick = iniciar;
+    document.getElementById('denovo').onclick = iniciar;
+    iniciar();
+  </script>
+</body>
+</html>
