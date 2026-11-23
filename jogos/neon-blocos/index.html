@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Neon Blocos · Jogos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Monoton&family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --rosa: #ff2bd6; --ciano: #00f0ff; --amarelo: #ffe600; --verde: #39ff14; --rosa-claro: #ff8be8;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    min-height: 100vh;
+    overflow-x: hidden;
+    color: #fff;
+    font-family: 'VT323', monospace;
+    background: linear-gradient(180deg, #07011a 0%, #1d0640 45%, #5b0a63 70%, #12002b 70.2%, #0a0018 100%) fixed;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+  }
+  a { color: var(--ciano); text-decoration: none; }
+
+  /* ---------- Cenário ---------- */
+  .cenario { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: 0; }
+  .sol {
+    position: absolute; left: 50%; top: 18vh; width: 520px; height: 520px; margin-left: -260px; border-radius: 50%;
+    background: linear-gradient(#ffe600 0%, #ff9a00 40%, #ff2bd6 75%);
+    -webkit-mask-image: linear-gradient(#000 52%, transparent 52% 56%, #000 56% 63%, transparent 63% 68%, #000 68% 74%, transparent 74% 80%, #000 80% 85%, transparent 85% 91%, #000 91%);
+            mask-image: linear-gradient(#000 52%, transparent 52% 56%, #000 56% 63%, transparent 63% 68%, #000 68% 74%, transparent 74% 80%, #000 80% 85%, transparent 85% 91%, #000 91%);
+    filter: drop-shadow(0 0 40px #ff2bd6);
+    animation: hue 18s linear infinite;
+  }
+  .chao {
+    position: absolute; left: -40%; right: -40%; bottom: -60px; height: 420px;
+    background-image: linear-gradient(var(--ciano) 2px, transparent 2px), linear-gradient(90deg, var(--ciano) 2px, transparent 2px);
+    background-size: 60px 60px; transform: perspective(320px) rotateX(62deg); transform-origin: bottom;
+    opacity: .5; animation: andar 1.2s linear infinite;
+  }
+  .scan {
+    position: fixed; inset: 0; pointer-events: none; z-index: 50;
+    background: repeating-linear-gradient(0deg, rgba(0,0,0,.22) 0 2px, transparent 2px 4px);
+  }
+  @keyframes andar { from { background-position: 0 0; } to { background-position: 0 60px; } }
+  @keyframes hue { to { filter: drop-shadow(0 0 40px #ff2bd6) hue-rotate(360deg); } }
+  @keyframes pulsar { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
+  @keyframes flash { 0% { filter: hue-rotate(0) brightness(1.8); } 100% { filter: hue-rotate(360deg) brightness(1); } }
+  body.flash .tabuleiro-box { animation: flash .5s ease-out; }
+
+  /* ---------- Estrutura ---------- */
+  .pagina { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 16px 16px 24px; }
+  .topo { width: 100%; max-width: 900px; display: flex; align-items: center; justify-content: space-between; }
+  .topo a, .topo button {
+    width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;
+    background: none; border: 0; color: var(--ciano); cursor: pointer; padding: 0;
+  }
+  .topo button { color: var(--verde); }
+  h1 {
+    margin: 0; font-family: 'Monoton', cursive; font-weight: 400; font-size: clamp(28px, 6vw, 58px); letter-spacing: .1em;
+    color: #ffe6fb; text-shadow: 0 0 6px var(--rosa), 0 0 18px var(--rosa), 0 0 36px var(--ciano), 4px 4px 0 var(--ciano);
+    text-align: center;
+  }
+
+  .jogo {
+    display: grid; gap: 16px 40px; align-items: start;
+    grid-template-columns: 230px auto 230px;
+    grid-template-areas: "hold board next" "stats board controles";
+  }
+  .caixa {
+    background: rgba(10,0,30,.82); border: 2px solid var(--rosa); border-radius: 10px; padding: 14px 16px;
+    box-shadow: 0 0 16px rgba(255,43,214,.55);
+  }
+  .caixa.ciano { border-color: var(--ciano); box-shadow: 0 0 16px rgba(0,240,255,.55); }
+  .caixa.amarela { border-color: var(--amarelo); box-shadow: 0 0 16px rgba(255,230,0,.4); }
+  .rot { display: block; font-family: 'Press Start 2P', monospace; font-size: 10px; color: var(--rosa-claro); margin-bottom: 4px; }
+  .caixa.ciano .rot { color: var(--ciano); }
+  .caixa.amarela .rot { color: var(--amarelo); }
+
+  .hold { grid-area: hold; display: flex; flex-direction: column; align-items: center; gap: 10px; cursor: pointer; color: inherit; font: inherit; }
+  .stats { grid-area: stats; display: flex; flex-direction: column; gap: 14px; }
+  .stats .val { font-size: 44px; line-height: 1; }
+  #pontos { color: var(--amarelo); text-shadow: 0 0 10px var(--amarelo); }
+  #recorde { color: var(--ciano); font-size: 32px; }
+  .next { grid-area: next; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  .controles { grid-area: controles; display: flex; flex-direction: column; gap: 8px; }
+  .controles div { display: flex; align-items: center; gap: 10px; font-size: 21px; white-space: nowrap; }
+  kbd { min-width: 82px; text-align: center; border: 1px solid var(--rosa-claro); border-radius: 5px; padding: 0 6px; color: var(--rosa-claro); font: inherit; }
+  .piscar { font-family: 'Press Start 2P', monospace; font-size: 11px; color: var(--verde); text-shadow: 0 0 8px var(--verde); animation: pulsar 1.4s steps(2) infinite; text-align: center; margin-top: 6px; }
+
+  .tabuleiro-box {
+    grid-area: board; position: relative; background: rgba(8,0,24,.9); border: 3px solid var(--rosa); border-radius: 12px; padding: 8px;
+    box-shadow: 0 0 22px var(--rosa), 0 0 70px rgba(0,240,255,.35), inset 0 0 30px rgba(255,43,214,.25);
+    touch-action: none;
+  }
+  #tabuleiro { display: block; }
+
+  .overlay {
+    position: absolute; inset: 0; border-radius: 9px; background: rgba(7,1,26,.86);
+    display: none; flex-direction: column; align-items: center; justify-content: center; gap: 16px; text-align: center; padding: 16px;
+  }
+  .overlay.visivel { display: flex; }
+  .overlay h2 { margin: 0; font-family: 'Press Start 2P', monospace; font-size: 16px; line-height: 1.6; color: var(--amarelo); text-shadow: 0 0 10px var(--amarelo); }
+  .overlay p { margin: 0; font-size: 24px; }
+  .start {
+    font-family: 'Press Start 2P', monospace; font-size: 12px; color: #fff; background: rgba(255,43,214,.25);
+    border: 2px solid var(--rosa); border-radius: 8px; padding: 14px 18px; cursor: pointer; box-shadow: 0 0 16px var(--rosa);
+    animation: pulsar 1.4s steps(2) infinite;
+  }
+
+  .botoes { grid-area: botoes; display: none; gap: 12px; justify-content: center; }
+  .btn {
+    width: 60px; height: 60px; border-radius: 50%; border: 2px solid var(--rosa); background: rgba(20,0,40,.85); color: #fff;
+    display: flex; align-items: center; justify-content: center; box-shadow: 0 0 14px rgba(255,43,214,.6); padding: 0; cursor: pointer; touch-action: none;
+  }
+  .btn.ciano { border-color: var(--ciano); box-shadow: 0 0 14px rgba(0,240,255,.6); }
+  .btn:active { transform: scale(.92); background: rgba(255,43,214,.3); }
+  .dica { display: none; font-size: 18px; color: #c9b8ff; text-align: center; }
+
+  /* ---------- Celular ---------- */
+  @media (max-width: 760px) {
+    .pagina { gap: 12px; padding: 12px 12px 20px; }
+    .jogo {
+      gap: 10px 12px; grid-template-columns: auto 92px;
+      grid-template-areas: "stats stats" "board next" "board hold" "botoes botoes";
+    }
+    .controles, .piscar { display: none; }
+    .stats { flex-direction: row; gap: 8px; }
+    .stats > div { flex: 1; min-width: 0; padding: 6px 4px; text-align: center; }
+    .stats > div:last-child { display: none; }
+    .stats .rot { font-size: 8px; }
+    .stats .val { font-size: 26px; line-height: 1.1; }
+    .caixa { padding: 8px 6px; }
+    .next, .hold { gap: 8px; }
+    .next .rot, .hold .rot { font-size: 7px; }
+    .tabuleiro-box { padding: 6px; border-radius: 10px; }
+    .botoes { display: flex; }
+    .dica { display: block; }
+  }
+</style>
+</head>
+<body>
+  <div class="cenario" aria-hidden="true"><div class="sol"></div><div class="chao"></div></div>
+  <div class="scan" aria-hidden="true"></div>
+
+  <div class="pagina">
+    <div class="topo">
+      <a href="../../" aria-label="Voltar ao site">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+      </a>
+      <h1>NEON BLOCOS</h1>
+      <button id="btnPausa" aria-label="Pausar">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M8 5v14M16 5v14"/></svg>
+      </button>
+    </div>
+
+    <div class="jogo">
+      <button class="caixa ciano hold" id="hold" aria-label="Guardar peça">
+        <span class="rot">GUARDADA</span>
+        <canvas id="cvHold" width="80" height="40"></canvas>
+      </button>
+
+      <div class="stats">
+        <div class="caixa"><span class="rot">PONTOS</span><span class="val" id="pontos">000.000</span></div>
+        <div class="caixa"><span class="rot">NÍVEL</span><span class="val" id="nivel">01</span></div>
+        <div class="caixa"><span class="rot">LINHAS</span><span class="val" id="linhas">000</span></div>
+        <div class="caixa"><span class="rot">RECORDE</span><span class="val" id="recorde">000.000</span></div>
+      </div>
+
+      <div class="tabuleiro-box" id="box">
+        <canvas id="tabuleiro"></canvas>
+        <div class="overlay visivel" id="overlay">
+          <h2 id="ovTitulo">NEON<br>BLOCOS</h2>
+          <p id="ovTexto">Encaixe as peças e<br>complete linhas.</p>
+          <button class="start" id="btnStart">APERTE START</button>
+        </div>
+      </div>
+
+      <div class="caixa ciano next">
+        <span class="rot">PRÓXIMAS</span>
+        <canvas class="cvNext" width="80" height="40"></canvas>
+        <canvas class="cvNext" width="80" height="40"></canvas>
+        <canvas class="cvNext" width="80" height="40"></canvas>
+      </div>
+
+      <div class="caixa amarela controles">
+        <span class="rot">CONTROLES</span>
+        <div><kbd>← →</kbd><span>Mover</span></div>
+        <div><kbd>↑ / X</kbd><span>Girar</span></div>
+        <div><kbd>↓</kbd><span>Descer</span></div>
+        <div><kbd>ESPAÇO</kbd><span>Queda rápida</span></div>
+        <div><kbd>C</kbd><span>Guardar peça</span></div>
+        <span class="piscar">P = PAUSAR</span>
+      </div>
+
+      <div class="botoes">
+        <button class="btn" data-acao="esq" aria-label="Mover para a esquerda"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg></button>
+        <button class="btn" data-acao="baixo" aria-label="Descer"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
+        <button class="btn" data-acao="dir" aria-label="Mover para a direita"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg></button>
+        <button class="btn ciano" data-acao="girar" aria-label="Girar"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.6"/><path d="M20 4v5h-5"/></svg></button>
+        <button class="btn ciano" data-acao="queda" aria-label="Queda rápida"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l6 6 6-6"/><path d="M6 13l6 6 6-6"/></svg></button>
+      </div>
+    </div>
+    <p class="dica">Também dá para deslizar o dedo no tabuleiro e tocar para girar.</p>
+  </div>
+
+<script>
+(() => {
+  const COLS = 10, ROWS = 20;
+  const CORES = { I: '#00f0ff', O: '#ffe600', T: '#ff2bd6', S: '#39ff14', Z: '#ff3864', J: '#6b7bff', L: '#ff9a00' };
+  const FORMAS = {
+    I: [[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]],
+    O: [[1,1],[1,1]],
+    T: [[0,1,0],[1,1,1],[0,0,0]],
+    S: [[0,1,1],[1,1,0],[0,0,0]],
+    Z: [[1,1,0],[0,1,1],[0,0,0]],
+    J: [[1,0,0],[1,1,1],[0,0,0]],
+    L: [[0,0,1],[1,1,1],[0,0,0]]
+  };
+  const PONTOS_LINHA = [0, 100, 300, 500, 800];
+
+  const cv = document.getElementById('tabuleiro');
+  const ctx = cv.getContext('2d');
+  const cvHold = document.getElementById('cvHold');
+  const cvNext = [...document.querySelectorAll('.cvNext')];
+  const overlay = document.getElementById('overlay');
+  const el = id => document.getElementById(id);
+
+  let T = 28;                    // tamanho da célula
+  let grade, peca, fila, guardada, podeGuardar, pontos, linhas, nivel;
+  let estado = 'inicio';         // inicio | jogando | pausado | fim
+  let ultimo = 0, acumulado = 0;
+
+  // ---------- Recorde ----------
+  const lerRec = () => { try { return +localStorage.getItem('neon-blocos-recorde') || 0; } catch { return 0; } };
+  const salvarRec = v => { try { localStorage.setItem('neon-blocos-recorde', v); } catch {} };
+  const fmt = n => String(n).padStart(6, '0').replace(/(\d{3})(\d{3})$/, '$1.$2');
+
+  // ---------- Tamanho do tabuleiro ----------
+  function dimensionar() {
+    if (innerWidth <= 760) {
+      const larg = innerWidth - 24 - 92 - 12 - 18;
+      const alt = innerHeight - 300;
+      T = Math.max(14, Math.min(28, Math.floor(Math.min(larg / COLS, alt / ROWS))));
+    } else {
+      T = Math.max(18, Math.min(28, Math.floor((innerHeight - 170) / ROWS)));
+    }
+    const dpr = window.devicePixelRatio || 1;
+    cv.width = COLS * T * dpr; cv.height = ROWS * T * dpr;
+    cv.style.width = COLS * T + 'px'; cv.style.height = ROWS * T + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    desenhar();
+  }
+
+  // ---------- Peças ----------
+  let saco = [];
+  function sortear() {
+    if (!saco.length) {
+      saco = Object.keys(FORMAS);
+      for (let i = saco.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [saco[i], saco[j]] = [saco[j], saco[i]]; }
+    }
+    return saco.pop();
+  }
+  function criar(tipo) {
+    const m = FORMAS[tipo].map(l => [...l]);
+    return { tipo, m, x: Math.floor((COLS - m[0].length) / 2), y: tipo === 'I' ? -1 : 0 };
+  }
+  const girarMatriz = m => m[0].map((_, j) => m.map(l => l[j]).reverse());
+
+  function colide(m, x, y) {
+    for (let i = 0; i < m.length; i++) for (let j = 0; j < m[i].length; j++) {
+      if (!m[i][j]) continue;
+      const gx = x + j, gy = y + i;
+      if (gx < 0 || gx >= COLS || gy >= ROWS) return true;
+      if (gy >= 0 && grade[gy][gx]) return true;
+    }
+    return false;
+  }
+
+  function proxima() {
+    peca = criar(fila.shift());
+    fila.push(sortear());
+    podeGuardar = true;
+    if (colide(peca.m, peca.x, peca.y)) fim();
+  }
+
+  // ---------- Ações ----------
+  function mover(dx) { if (estado !== 'jogando') return; if (!colide(peca.m, peca.x + dx, peca.y)) { peca.x += dx; desenhar(); } }
+  function girar() {
+    if (estado !== 'jogando' || peca.tipo === 'O') return;
+    const m = girarMatriz(peca.m);
+    for (const k of [0, -1, 1, -2, 2]) {
+      if (!colide(m, peca.x + k, peca.y)) { peca.m = m; peca.x += k; desenhar(); return; }
+    }
+  }
+  function descer(manual) {
+    if (estado !== 'jogando') return;
+    if (!colide(peca.m, peca.x, peca.y + 1)) { peca.y++; if (manual) somar(1); }
+    else fixar();
+    acumulado = 0;
+    desenhar();
+  }
+  function queda() {
+    if (estado !== 'jogando') return;
+    let n = 0;
+    while (!colide(peca.m, peca.x, peca.y + 1)) { peca.y++; n++; }
+    somar(n * 2);
+    fixar();
+    acumulado = 0;
+    desenhar();
+  }
+  function guardar() {
+    if (estado !== 'jogando' || !podeGuardar) return;
+    const atual = peca.tipo;
+    if (guardada) { peca = criar(guardada); } else { proxima(); }
+    guardada = atual; podeGuardar = false;
+    desenharMini(cvHold, guardada);
+    desenhar();
+  }
+
+  function fixar() {
+    peca.m.forEach((l, i) => l.forEach((v, j) => {
+      if (v && peca.y + i >= 0) grade[peca.y + i][peca.x + j] = peca.tipo;
+    }));
+    if (peca.m.some((l, i) => l.some(v => v) && peca.y + i < 0)) return fim();
+
+    let cheias = 0;
+    for (let y = ROWS - 1; y >= 0; y--) {
+      if (grade[y].every(c => c)) { grade.splice(y, 1); grade.unshift(Array(COLS).fill(null)); cheias++; y++; }
+    }
+    if (cheias) {
+      linhas += cheias;
+      somar(PONTOS_LINHA[cheias] * nivel);
+      nivel = Math.floor(linhas / 10) + 1;
+      document.body.classList.remove('flash'); void document.body.offsetWidth; document.body.classList.add('flash');
+    }
+    proxima();
+    atualizarPainel();
+  }
+
+  function somar(n) { pontos += n; atualizarPainel(); }
+
+  function atualizarPainel() {
+    el('pontos').textContent = fmt(pontos);
+    el('nivel').textContent = String(nivel).padStart(2, '0');
+    el('linhas').textContent = String(linhas).padStart(3, '0');
+    if (pontos > lerRec()) salvarRec(pontos);
+    el('recorde').textContent = fmt(lerRec());
+    cvNext.forEach((c, i) => desenharMini(c, fila[i]));
+  }
+
+  const velocidade = () => Math.max(80, 800 - (nivel - 1) * 70);
+
+  // ---------- Desenho ----------
+  function bloco(c, x, y, t, cor, fantasma) {
+    if (fantasma) {
+      c.save(); c.setLineDash([4, 3]); c.strokeStyle = 'rgba(255,43,214,.8)'; c.lineWidth = 2;
+      c.strokeRect(x + 2, y + 2, t - 4, t - 4); c.restore(); return;
+    }
+    c.save();
+    c.shadowColor = cor; c.shadowBlur = t * .4;
+    c.fillStyle = cor; c.fillRect(x + 1, y + 1, t - 2, t - 2);
+    c.shadowBlur = 0;
+    c.strokeStyle = 'rgba(255,255,255,.45)'; c.lineWidth = Math.max(2, t / 10);
+    c.strokeRect(x + 1 + c.lineWidth / 2, y + 1 + c.lineWidth / 2, t - 2 - c.lineWidth, t - 2 - c.lineWidth);
+    c.restore();
+  }
+
+  function desenhar() {
+    ctx.clearRect(0, 0, COLS * T, ROWS * T);
+    for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+      ctx.fillStyle = 'rgba(255,255,255,.035)'; ctx.fillRect(x * T + 1, y * T + 1, T - 2, T - 2);
+      ctx.strokeStyle = 'rgba(0,240,255,.08)'; ctx.lineWidth = 1; ctx.strokeRect(x * T + 1.5, y * T + 1.5, T - 3, T - 3);
+    }
+    if (!grade) return;
+    grade.forEach((l, y) => l.forEach((tipo, x) => { if (tipo) bloco(ctx, x * T, y * T, T, CORES[tipo]); }));
+    if (!peca || estado === 'inicio') return;
+    let gy = peca.y;
+    while (!colide(peca.m, peca.x, gy + 1)) gy++;
+    peca.m.forEach((l, i) => l.forEach((v, j) => {
+      if (v && gy + i >= 0 && gy !== peca.y) bloco(ctx, (peca.x + j) * T, (gy + i) * T, T, null, true);
+    }));
+    peca.m.forEach((l, i) => l.forEach((v, j) => {
+      if (v && peca.y + i >= 0) bloco(ctx, (peca.x + j) * T, (peca.y + i) * T, T, CORES[peca.tipo]);
+    }));
+  }
+
+  function desenharMini(c, tipo) {
+    const g = c.getContext('2d');
+    g.clearRect(0, 0, c.width, c.height);
+    if (!tipo) return;
+    const m = FORMAS[tipo].filter(l => l.some(v => v));
+    const t = 18, w = m[0].length * t, h = m.length * t;
+    const ox = (c.width - w) / 2, oy = (c.height - h) / 2;
+    m.forEach((l, i) => l.forEach((v, j) => { if (v) bloco(g, ox + j * t, oy + i * t, t, CORES[tipo]); }));
+  }
+
+  // ---------- Fluxo do jogo ----------
+  function iniciar() {
+    grade = Array.from({ length: ROWS }, () => Array(COLS).fill(null));
+    saco = []; fila = [sortear(), sortear(), sortear()];
+    guardada = null; pontos = 0; linhas = 0; nivel = 1;
+    desenharMini(cvHold, null);
+    estado = 'jogando';
+    overlay.classList.remove('visivel');
+    proxima();
+    atualizarPainel();
+    acumulado = 0; ultimo = performance.now();
+    desenhar();
+  }
+
+  function pausar() {
+    if (estado === 'jogando') {
+      estado = 'pausado';
+      mostrar('PAUSA', 'Respire fundo.', 'CONTINUAR');
+    } else if (estado === 'pausado') {
+      estado = 'jogando'; overlay.classList.remove('visivel'); ultimo = performance.now();
+    }
+  }
+
+  function fim() {
+    estado = 'fim';
+    const recorde = pontos >= lerRec() && pontos > 0;
+    mostrar('GAME<br>OVER', `${fmt(pontos)} pontos` + (recorde ? '<br>NOVO RECORDE!' : ''), 'JOGAR DE NOVO');
+  }
+
+  function mostrar(titulo, texto, botao) {
+    el('ovTitulo').innerHTML = titulo; el('ovTexto').innerHTML = texto; el('btnStart').textContent = botao;
+    overlay.classList.add('visivel');
+  }
+
+  function loop(agora) {
+    if (estado === 'jogando') {
+      acumulado += agora - ultimo;
+      if (acumulado >= velocidade()) descer(false);
+    }
+    ultimo = agora;
+    requestAnimationFrame(loop);
+  }
+
+  el('btnStart').onclick = () => { if (estado === 'pausado') pausar(); else iniciar(); };
+  el('btnPausa').onclick = pausar;
+  el('hold').onclick = guardar;
+
+  // ---------- Teclado ----------
+  document.addEventListener('keydown', e => {
+    const k = e.key;
+    if (['ArrowLeft', 'ArrowRight', 'ArrowDown', 'ArrowUp', ' '].includes(k)) e.preventDefault();
+    if (estado === 'inicio' || estado === 'fim') { if (k === 'Enter' || k === ' ') iniciar(); return; }
+    if (k === 'p' || k === 'P' || k === 'Escape') return pausar();
+    if (estado !== 'jogando') return;
+    if (k === 'ArrowLeft') mover(-1);
+    else if (k === 'ArrowRight') mover(1);
+    else if (k === 'ArrowDown') descer(true);
+    else if (k === 'ArrowUp' || k === 'x' || k === 'X') girar();
+    else if (k === ' ') queda();
+    else if (k === 'c' || k === 'C' || k === 'Shift') guardar();
+  });
+
+  // ---------- Botões de toque (com repetição ao segurar) ----------
+  const ACOES = { esq: () => mover(-1), dir: () => mover(1), baixo: () => descer(true), girar, queda };
+  document.querySelectorAll('.btn').forEach(b => {
+    let t1, t2;
+    const parar = () => { clearTimeout(t1); clearInterval(t2); };
+    b.addEventListener('pointerdown', e => {
+      e.preventDefault();
+      const acao = ACOES[b.dataset.acao]; acao();
+      if (['esq', 'dir', 'baixo'].includes(b.dataset.acao)) t1 = setTimeout(() => { t2 = setInterval(acao, 70); }, 220);
+    });
+    ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => b.addEventListener(ev, parar));
+  });
+
+  // ---------- Deslizar no tabuleiro ----------
+  let toque = null, passos = 0;
+  const box = el('box');
+  box.addEventListener('touchstart', e => {
+    if (estado !== 'jogando') return;
+    toque = { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now() }; passos = 0;
+  }, { passive: true });
+  box.addEventListener('touchmove', e => {
+    if (!toque) return;
+    const dx = e.touches[0].clientX - toque.x;
+    const alvo = Math.trunc(dx / T);
+    while (passos < alvo) { mover(1); passos++; }
+    while (passos > alvo) { mover(-1); passos--; }
+  }, { passive: true });
+  box.addEventListener('touchend', e => {
+    if (!toque) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - toque.x, dy = t.clientY - toque.y, dt = Date.now() - toque.t;
+    if (Math.abs(dx) < 10 && Math.abs(dy) < 10 && dt < 250) girar();
+    else if (dy > 60 && dy > Math.abs(dx) * 1.5) queda();
+    toque = null;
+  });
+
+  window.addEventListener('resize', dimensionar);
+  el('recorde').textContent = fmt(lerRec());
+  dimensionar();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

@@ -11,6 +11,7 @@ Site de jogos simples feitos em HTML, CSS e JavaScript puro, sem instalação e 
 | Snake | `jogos/snake/` | Setas, WASD, botões na tela ou deslizar o dedo |
 | Jogo da Memória | `jogos/memoria/` | Clique ou toque nas cartas |
 | 2048 | `jogos/2048/` | Setas, WASD ou deslizar o dedo |
+| Neon Blocos | `jogos/neon-blocos/` | Setas, X, Espaço, C, P · botões e gestos no celular |
 
 Os recordes ficam salvos no próprio navegador (localStorage).
 
